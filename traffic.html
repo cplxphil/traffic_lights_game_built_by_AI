@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reactor Grid — Containment Console</title>
+<style>
+  :root{
+    --bg: #0a0d10;
+    --panel: #12171c;
+    --panel-2: #161c22;
+    --bezel: #1f2830;
+    --line: #263039;
+    --text: #cfd9e0;
+    --muted: #6f8190;
+    --cyan: #52d9c9;
+    --cyan-dim: #2f6b64;
+    --amber: #e8b339;
+    --red: #ef4b4b;
+    --green: #38d68f;
+  }
+
+  *{ box-sizing: border-box; }
+
+  html,body{
+    margin:0;
+    min-height:100%;
+    background:
+      radial-gradient(1200px 600px at 50% -10%, #131a20 0%, var(--bg) 55%),
+      var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  }
+
+  .console{
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 28px 18px 60px;
+  }
+
+  header{
+    text-align:center;
+    margin-bottom: 22px;
+  }
+
+  .eyebrow{
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: var(--cyan);
+    opacity:0.85;
+  }
+
+  h1{
+    font-size: 34px;
+    margin: 6px 0 8px;
+    letter-spacing: 6px;
+    font-weight: 800;
+    font-stretch: condensed;
+    transform: scaleX(0.94);
+    background: linear-gradient(180deg, #f2f6f8, #9fb2bd);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .brief{
+    max-width: 440px;
+    margin: 0 auto;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--muted);
+  }
+
+  .panel{
+    background: linear-gradient(180deg, var(--panel-2), var(--panel));
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 20px;
+    box-shadow:
+      0 30px 60px -30px rgba(0,0,0,0.7),
+      inset 0 1px 0 rgba(255,255,255,0.03);
+  }
+
+  .gauge-row{
+    display:flex;
+    align-items:center;
+    gap: 14px;
+    margin-bottom: 18px;
+  }
+
+  .boost-gauge{
+    flex: 1;
+    background: #0c1013;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 8px 10px;
+  }
+
+  .boost-label{
+    display:flex;
+    justify-content: space-between;
+    font-family: 'Courier New', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+
+  .boost-label span.num{
+    color: var(--cyan);
+    font-weight: bold;
+  }
+
+  .boost-track{
+    height: 8px;
+    background: #05070a;
+    border-radius: 5px;
+    overflow: hidden;
+    border: 1px solid #000;
+  }
+
+  .boost-fill{
+    height: 100%;
+    width: 100%;
+    background: linear-gradient(90deg, var(--cyan-dim), var(--cyan));
+    transition: width 0.08s linear, background 0.3s linear;
+  }
+
+  .status-readout{
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    color: var(--muted);
+    background: #0c1013;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 12px 14px;
+    text-align: center;
+    min-width: 118px;
+  }
+
+  .status-readout .big{
+    display:block;
+    font-size: 15px;
+    color: var(--text);
+    margin-bottom: 2px;
+    font-weight: bold;
+  }
+
+  .grid{
+    display:grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+  }
+
+  .cell{
+    position: relative;
+    aspect-ratio: 1;
+    background: #0d1216;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    display:flex;
+    flex-direction: column;
+    align-items:center;
+    justify-content:center;
+    padding: 10px;
+    box-shadow: inset 0 2px 6px rgba(0,0,0,0.6);
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+  }
+
+  .cell .id{
+    position:absolute;
+    top: 7px;
+    left: 9px;
+    font-family: 'Courier New', monospace;
+    font-size: 9px;
+    letter-spacing: 1px;
+    color: var(--muted);
+  }
+
+  .lamp{
+    width: 62%;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    border: 3px solid #06090b;
+    box-shadow:
+      inset 0 -6px 10px rgba(0,0,0,0.5),
+      inset 0 4px 8px rgba(255,255,255,0.12),
+      0 0 0 1px rgba(255,255,255,0.03);
+    transition: box-shadow 0.15s linear;
+  }
+
+  .cell.danger .lamp{
+    animation: pulse 0.7s ease-in-out infinite;
+  }
+
+  @keyframes pulse{
+    0%,100%{ filter: brightness(1); }
+    50%{ filter: brightness(1.35); }
+  }
+
+  .readout{
+    margin-top: 8px;
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    letter-spacing: 1px;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .cell.hovering .readout{ color: var(--green); }
+  .cell.holding .readout{ color: var(--cyan); }
+
+  .cell.no-fuel{ cursor: not-allowed; }
+
+  .log{
+    margin-top: 16px;
+    font-family: 'Courier New', monospace;
+    font-size: 10.5px;
+    color: var(--muted);
+    letter-spacing: 0.5px;
+    text-align:center;
+    min-height: 14px;
+    opacity: 0.9;
+  }
+
+  .foot{
+    margin-top: 16px;
+    display:flex;
+    justify-content: center;
+  }
+
+  .btn{
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    letter-spacing: 2px;
+    background: #10161b;
+    color: var(--cyan);
+    border: 1px solid var(--cyan-dim);
+    border-radius: 8px;
+    padding: 9px 18px;
+    cursor: pointer;
+  }
+
+  .btn:hover{ background: #141c22; }
+
+  .overlay{
+    position: fixed;
+    inset: 0;
+    background: rgba(6,8,10,0.86);
+    backdrop-filter: blur(2px);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    z-index: 10;
+  }
+
+  .overlay.show{ display:flex; }
+
+  .overlay-card{
+    text-align:center;
+    padding: 34px 40px;
+    border-radius: 16px;
+    border: 1px solid var(--line);
+    background: var(--panel);
+    max-width: 320px;
+  }
+
+  .overlay-card h2{
+    margin: 0 0 8px;
+    letter-spacing: 3px;
+    font-size: 22px;
+  }
+
+  .overlay-card.win h2{ color: var(--green); }
+  .overlay-card.lose h2{ color: var(--red); }
+
+  .overlay-card p{
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.5;
+    margin-bottom: 20px;
+  }
+
+  .rules-toggle{
+    text-align:center;
+    margin-top: 14px;
+  }
+
+  .rules-toggle a{
+    font-family: 'Courier New', monospace;
+    font-size: 10.5px;
+    letter-spacing: 1.5px;
+    color: var(--muted);
+    text-decoration: underline;
+    cursor:pointer;
+  }
+
+  .rules{
+    display:none;
+    margin-top: 10px;
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--muted);
+    background: #0c1013;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 14px 16px;
+  }
+
+  .rules.show{ display:block; }
+
+  .rules b{ color: var(--text); }
+</style>
+</head>
+<body>
+
+<div class="console">
+  <header>
+    <div class="eyebrow">CONTAINMENT CONSOLE // GRID 07</div>
+    <h1>REACTOR GRID</h1>
+    <p class="brief">Nine cores are drifting toward meltdown. Hover a core to bleed off heat. Hold the mouse down to force it down fast — but that burns boost fuel. Get every core under 50 before three go critical.</p>
+  </header>
+
+  <div class="panel">
+    <div class="gauge-row">
+      <div class="boost-gauge">
+        <div class="boost-label">BOOST FUEL <span class="num" id="boostNum">100</span></div>
+        <div class="boost-track"><div class="boost-fill" id="boostFill"></div></div>
+      </div>
+      <div class="status-readout">
+        <span class="big" id="statusBig">STANDBY</span>
+        <span id="statusSmall">grid initializing</span>
+      </div>
+    </div>
+
+    <div class="grid" id="grid"></div>
+
+    <div class="log" id="log">&nbsp;</div>
+  </div>
+
+  <div class="foot">
+    <button class="btn" id="restartBtn">⟳ RESET GRID</button>
+  </div>
+
+  <div class="rules-toggle"><a id="rulesLink">show console manual</a></div>
+  <div class="rules" id="rules">
+    <b>Objective</b> — get all nine cores below 50 to win.<br>
+    <b>Failure</b> — if three or more cores pass 75 at the same time, containment fails.<br>
+    <b>Hover</b> a core (no click) to cool it slowly at 1°/sec, free of charge.<br>
+    <b>Click and hold</b> a core to force it toward 0 fast, at 10°/sec — but fuel drains the whole time you hold, and every click spends at least 5 fuel even if you tap and release.<br>
+    <b>Left alone</b>, each core climbs toward 100 at its own steady rate, randomized fresh every run.<br>
+    Ran low on fuel or find it too brutal? Reset the grid for a fresh, re-randomized layout.
+  </div>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="overlay-card" id="overlayCard">
+    <h2 id="overlayTitle">—</h2>
+    <p id="overlayText">—</p>
+    <button class="btn" id="overlayBtn">⟳ RUN IT BACK</button>
+  </div>
+</div>
+
+<script>
+(function(){
+
+  // ---------------------------------------------------------------
+  // TUNING — the brief explicitly allows adjusting these if the raw
+  // spec numbers (start at 70, rates up to 5/sec, lose at 3 cores >75)
+  // don't leave the game winnable. With 9 independent cores and only
+  // one cursor, unattended cores need to climb slowly enough that a
+  // player can realistically rotate across all nine. These values
+  // keep the spec's shape (same win/lose rules, same click math,
+  // same 5-fuel-per-click floor) but soften starting heat and climb
+  // rate so a careful run can actually be won.
+  // ---------------------------------------------------------------
+  const CONFIG = {
+    boostStart: 100,
+    lightStartMin: 50,
+    lightStartMax: 62,
+    riseRateMin: 0.35,      // cores are randomized in this range every run
+    riseRateMax: 1.35,      // spec's stated ceiling is 5/sec; kept well under it
+    hoverCoolRate: 1.0,     // per second, free
+    clickCoolRate: 10,      // per second, while held down
+    clickCostRate: 2,       // fuel per second, while held down
+    clickMinCost: 5,        // minimum fuel spent per click, per the spec
+    winThreshold: 50,       // every core must be strictly below this
+    dangerThreshold: 75,    // a core counts as "critical" above this
+    dangerCountToLose: 3
+  };
+
+  const grid = document.getElementById('grid');
+  const boostNum = document.getElementById('boostNum');
+  const boostFill = document.getElementById('boostFill');
+  const statusBig = document.getElementById('statusBig');
+  const statusSmall = document.getElementById('statusSmall');
+  const logEl = document.getElementById('log');
+  const overlay = document.getElementById('overlay');
+  const overlayCard = document.getElementById('overlayCard');
+  const overlayTitle = document.getElementById('overlayTitle');
+  const overlayText = document.getElementById('overlayText');
+  const overlayBtn = document.getElementById('overlayBtn');
+  const restartBtn = document.getElementById('restartBtn');
+  const rulesLink = document.getElementById('rulesLink');
+  const rulesBox = document.getElementById('rules');
+
+  rulesLink.addEventListener('click', () => {
+    rulesBox.classList.toggle('show');
+    rulesLink.textContent = rulesBox.classList.contains('show') ? 'hide console manual' : 'show console manual';
+  });
+
+  let lights = [];
+  let boost = CONFIG.boostStart;
+  let over = false;
+  let lastTime = null;
+
+  function rand(min, max){ return min + Math.random() * (max - min); }
+  function clamp(v, lo, hi){ return Math.max(lo, Math.min(hi, v)); }
+
+  function getColor(value){
+    value = clamp(value, 0, 100);
+    let r, g, b;
+    if (value <= 50){
+      const t = value / 50;
+      r = lerp(56, 232, t);
+      g = lerp(214, 191, t);
+      b = lerp(143, 46, t);
+    } else {
+      const t = (value - 50) / 50;
+      r = lerp(232, 224, t);
+      g = lerp(191, 55, t);
+      b = lerp(46, 62, t);
+    }
+    return [Math.round(r), Math.round(g), Math.round(b)];
+  }
+
+  function lerp(a, b, t){ return a + (b - a) * t; }
+
+  function shade(rgb, amt){
+    return rgb.map(c => clamp(Math.round(c + amt), 0, 255));
+  }
+
+  function rgbStr(rgb){ return `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`; }
+
+  function buildGrid(){
+    grid.innerHTML = '';
+    lights = [];
+    for (let i = 0; i < 9; i++){
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+
+      const idTag = document.createElement('div');
+      idTag.className = 'id';
+      idTag.textContent = 'C' + (i + 1);
+      cell.appendChild(idTag);
+
+      const lamp = document.createElement('div');
+      lamp.className = 'lamp';
+      cell.appendChild(lamp);
+
+      const readout = document.createElement('div');
+      readout.className = 'readout';
+      cell.appendChild(readout);
+
+      grid.appendChild(cell);
+
+      const light = {
+        value: rand(CONFIG.lightStartMin, CONFIG.lightStartMax),
+        rate: rand(CONFIG.riseRateMin, CONFIG.riseRateMax),
+        hovering: false,
+        holding: false,
+        holdAccum: 0,
+        cell, lamp, readout
+      };
+      lights.push(light);
+
+      cell.addEventListener('mouseenter', () => {
+        if (over) return;
+        light.hovering = true;
+        cell.classList.add('hovering');
+      });
+      cell.addEventListener('mouseleave', () => {
+        light.hovering = false;
+        cell.classList.remove('hovering');
+      });
+      cell.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        if (over || boost <= 0) return;
+        light.holding = true;
+        light.holdAccum = 0;
+        cell.classList.add('holding');
+      });
+    }
+  }
+
+  function endHold(light){
+    if (!light.holding) return;
+    light.holding = false;
+    light.cell.classList.remove('holding');
+    if (light.holdAccum < CONFIG.clickMinCost){
+      const deficit = CONFIG.clickMinCost - light.holdAccum;
+      boost = clamp(boost - deficit, 0, CONFIG.boostStart);
+    }
+  }
+
+  window.addEventListener('mouseup', () => {
+    lights.forEach(endHold);
+  });
+  window.addEventListener('blur', () => {
+    lights.forEach(endHold);
+  });
+
+  function log(msg){
+    logEl.textContent = msg;
+  }
+
+  function setStatus(big, small){
+    statusBig.textContent = big;
+    statusSmall.textContent = small;
+  }
+
+  function showOverlay(win){
+    over = true;
+    overlay.classList.add('show');
+    overlayCard.className = 'overlay-card ' + (win ? 'win' : 'lose');
+    if (win){
+      overlayTitle.textContent = 'GRID STABILIZED';
+      overlayText.textContent = 'All nine cores are back under control. Containment holds.';
+    } else {
+      overlayTitle.textContent = 'CONTAINMENT FAILED';
+      overlayText.textContent = 'Three or more cores went critical at once. The grid is lost.';
+    }
+  }
+
+  function resetGame(){
+    boost = CONFIG.boostStart;
+    over = false;
+    overlay.classList.remove('show');
+    setStatus('ACTIVE', 'containment engaged');
+    log('grid re-initialized — core rates re-randomized');
+    buildGrid();
+    lastTime = null;
+  }
+
+  function tick(now){
+    if (lastTime === null) lastTime = now;
+    let dt = (now - lastTime) / 1000;
+    dt = Math.min(dt, 0.1);
+    lastTime = now;
+
+    if (!over){
+      for (const light of lights){
+        if (light.holding && boost > 0){
+          const dec = CONFIG.clickCoolRate * dt;
+          light.value = clamp(light.value - dec, 0, 100);
+          const cost = Math.min(CONFIG.clickCostRate * dt, boost);
+          boost = clamp(boost - cost, 0, CONFIG.boostStart);
+          light.holdAccum += cost;
+        } else if (light.hovering){
+          light.value = clamp(light.value - CONFIG.hoverCoolRate * dt, 0, 100);
+        } else {
+          light.value = clamp(light.value + light.rate * dt, 0, 100);
+        }
+      }
+
+      const dangerCount = lights.filter(l => l.value > CONFIG.dangerThreshold).length;
+      const allSafe = lights.every(l => l.value < CONFIG.winThreshold);
+
+      if (dangerCount >= CONFIG.dangerCountToLose){
+        showOverlay(false);
+      } else if (allSafe){
+        showOverlay(true);
+      } else if (dangerCount > 0){
+        setStatus('WARNING', dangerCount + ' core' + (dangerCount > 1 ? 's' : '') + ' critical');
+      } else {
+        setStatus('ACTIVE', 'containment engaged');
+      }
+    }
+
+    render();
+    requestAnimationFrame(tick);
+  }
+
+  function render(){
+    for (const light of lights){
+      const base = getColor(light.value);
+      const light1 = shade(base, 55);
+      const dark1 = shade(base, -45);
+      light.lamp.style.background =
+        `radial-gradient(circle at 33% 30%, ${rgbStr(light1)} 0%, ${rgbStr(base)} 55%, ${rgbStr(dark1)} 100%)`;
+
+      const glowStrength = clamp((light.value - 40) / 60, 0, 1);
+      const glowSize = 6 + glowStrength * 22;
+      const glowAlpha = 0.15 + glowStrength * 0.55;
+      light.lamp.style.boxShadow =
+        `inset 0 -6px 10px rgba(0,0,0,0.5), inset 0 4px 8px rgba(255,255,255,0.12), 0 0 ${glowSize}px rgba(${base[0]},${base[1]},${base[2]},${glowAlpha})`;
+
+      light.readout.textContent = Math.round(light.value) + '°';
+
+      if (light.value > CONFIG.dangerThreshold){
+        light.cell.classList.add('danger');
+      } else {
+        light.cell.classList.remove('danger');
+      }
+
+      if (boost <= 0){
+        light.cell.classList.add('no-fuel');
+      } else {
+        light.cell.classList.remove('no-fuel');
+      }
+    }
+
+    boostNum.textContent = Math.round(boost);
+    boostFill.style.width = boost + '%';
+    if (boost < 25){
+      boostFill.style.background = 'linear-gradient(90deg, #7a3a2e, ' + 'var(--red)' + ')';
+    } else if (boost < 55){
+      boostFill.style.background = 'linear-gradient(90deg, #8a6a1f, var(--amber))';
+    } else {
+      boostFill.style.background = 'linear-gradient(90deg, var(--cyan-dim), var(--cyan))';
+    }
+  }
+
+  restartBtn.addEventListener('click', resetGame);
+  overlayBtn.addEventListener('click', resetGame);
+
+  resetGame();
+  requestAnimationFrame(tick);
+
+})();
+</script>
+
+</body>
+</html>
